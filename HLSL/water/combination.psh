@@ -1,0 +1,32 @@
+sampler2D water_render_vertex;
+sampler2D water_color;
+sampler2D water_render_normal;
+sampler2D ground_render_vertex;
+sampler2D ground_color;
+
+float4x4 matView;
+float4x4 matProjection;
+
+struct PS_INPUT 
+{
+   float2 Texcoord : TEXCOORD0;
+};
+
+#define water_distortion 0.015f
+#define depth_base 0.65f
+#define depth_modifier 0.03f
+
+float4 ps_main(PS_INPUT Input) : COLOR0
+{
+   float4 water_vertex = tex2D(water_render_vertex, Input.Texcoord);
+   float4 color_water = tex2D(water_color, Input.Texcoord);
+   float4 water_normal = tex2D(water_render_normal, Input.Texcoord);
+   water_normal = mul(mul(float4(water_normal.xyz, 0.0f), matView), matProjection);
+   float4 ground_vertex = tex2D(ground_render_vertex, Input.Texcoord);
+   float4 color_ground = tex2D(ground_color, Input.Texcoord + water_normal * water_distortion);
+   
+   float water_depth = saturate(depth_base - abs(water_vertex.y - ground_vertex.y) * depth_modifier) * color_water.w;
+   //return float4(water_depth, water_depth, water_depth, 1.0f);
+   
+   return lerp(color_ground + water_depth, color_water, color_water.w);
+}

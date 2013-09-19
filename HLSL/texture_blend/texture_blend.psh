@@ -1,0 +1,30 @@
+sampler2D Texture0;
+sampler2D Texture1;
+sampler2D Texture2;
+sampler2D Texture3;
+
+float4 blend(float4 texture1, float a1, float4 texture2, float a2)
+{
+    float depth = 0.2;
+    float ma = max(texture1.a + a1, texture2.a + a2) - depth;
+    
+    float b1 = max(texture1.a + a1 - ma, 0.0);
+    float b2 = max(texture2.a + a2 - ma, 0.0);
+    
+    float3 result = (texture1.rgb * b1 + texture2.rgb * b2) / (b1 + b2);
+    
+    return float4(result, 1.0);
+}
+
+float4 ps_main( float2 texCoord  : TEXCOORD0 ) : COLOR
+{
+   float4 stone = tex2D( Texture0, texCoord );
+   stone.a = 0.299 * stone.r + 0.587 * stone.g + 0.114 * stone.b;
+   float4 sand = tex2D( Texture1, texCoord );
+   sand.a = 0.299 * sand.r + 0.587 * sand.g + 0.114 * sand.b;
+   
+   float4 opacity_stone = tex2D( Texture2, texCoord );
+   float4 opacity_sand = tex2D( Texture3, texCoord );
+   
+   return blend(stone, opacity_stone.x, sand, opacity_sand.x);
+}

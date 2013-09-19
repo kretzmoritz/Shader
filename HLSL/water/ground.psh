@@ -1,0 +1,57 @@
+sampler2D ground;
+sampler2D ground_normal;
+sampler2D caustic_sheet;
+
+float fTime0_1;
+
+struct PS_INPUT
+{
+   float4 Position_PS : TEXCOORD0;
+   float2 Texcoord : TEXCOORD1;
+   float4 Normal : TEXCOORD2;
+   float4 Tangent : TEXCOORD3;
+   float4 Binormal : TEXCOORD4;
+};
+
+struct PS_OUTPUT
+{
+   float4 Position : COLOR0;
+   float4 Color : COLOR1;
+};
+
+#define max_cols 8.0f
+#define max_rows 8.0f
+#define max_frames 64.0f
+#define ground_tiling 4.0f
+
+float3 LightDir = normalize(float3(0.5f, 1.0f, 1.0f));
+
+PS_OUTPUT ps_main(PS_INPUT Input)
+{
+   PS_OUTPUT Output;
+
+   float frame = floor(fTime0_1 * max_frames);
+   float column = fmod(frame, max_cols);
+   float row = floor(frame / max_cols);
+   float x = column / max_cols;
+   float y = row / max_rows;
+   float2 animCoord = Input.Texcoord.xy / float2(max_cols, max_rows) + float2(x, y);
+   
+   float4 color_ground = tex2D(ground, Input.Texcoord * ground_tiling);
+   float4 color_ground_normal = tex2D(ground_normal, Input.Texcoord * ground_tiling);
+   float4 color_caustic_sheet = tex2D(caustic_sheet, animCoord);
+   
+   float3 normal = normalize(Input.Normal);
+   float3 tangent = normalize(Input.Tangent);
+   float3 binormal = normalize(Input.Binormal);
+   float3 normal_bump = normalize((color_ground_normal.xyz * 2.0f) - 1.0f);
+   float3 mod_normal = normal_bump.z * normal + normal_bump.x * tangent + normal_bump.y * binormal;
+   
+   float diffuse = saturate(dot(mod_normal, LightDir));
+   float ambient = 0.1f;
+   
+   Output.Position = Input.Position_PS;
+   Output.Color = color_ground * (diffuse + ambient) + color_caustic_sheet;
+   
+   return Output;
+}

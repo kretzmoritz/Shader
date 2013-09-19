@@ -1,0 +1,34 @@
+sampler2D Texture0;
+sampler2D Texture1;
+
+float2 fViewportDimensions;
+
+float4 ps_main( float2 texCoord : TEXCOORD0 ) : COLOR
+{
+   int CHAR_SIZE = 8;
+   int GRAY_LEVELS = 8;
+   int CHARS_ON_TEXTURE = 16;
+   
+   float2 CHAR_COUNT = fViewportDimensions / CHAR_SIZE;
+   float2 MODIFIED_COORD = floor(CHAR_COUNT * texCoord) / CHAR_COUNT;
+   float DELTA = (1.0 / CHAR_COUNT) / CHAR_SIZE;
+   float ALIGNMENT = float(GRAY_LEVELS) / CHARS_ON_TEXTURE;
+   
+   float3 color = float3(0.0, 0.0, 0.0);
+   
+   for (int i = 0; i < CHAR_SIZE; ++i)
+   {
+      for (int j = 0; j < CHAR_SIZE; ++j)
+      {
+         color += tex2D(Texture0, MODIFIED_COORD + float2(DELTA * i, DELTA * j));
+      }
+   }
+   
+   color /= (CHAR_SIZE * CHAR_SIZE);
+   
+   float gray = 0.299 * color.x + 0.587 * color.y + 0.114 * color.z;
+   gray = floor(GRAY_LEVELS * gray) / GRAY_LEVELS;
+   
+   float2 ascii = float2(gray, gray) * ALIGNMENT + (texCoord - MODIFIED_COORD) * CHAR_COUNT / CHARS_ON_TEXTURE;
+   return tex2D(Texture1, ascii) * float4(color, 1.0);
+}

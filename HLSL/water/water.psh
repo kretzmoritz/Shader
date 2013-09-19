@@ -1,0 +1,79 @@
+sampler2D water;
+sampler2D water_tint;
+sampler2D water_normal;
+sampler2D foam;
+sampler2D caustic;
+
+float fTime0_1;
+float4x4 matView;
+
+struct PS_INPUT 
+{
+   float4 Position_PS : TEXCOORD0;
+   float2 Texcoord : TEXCOORD1;
+   float Id : TEXCOORD2;
+   float3 Normal : TEXCOORD3;
+   float3 Tangent : TEXCOORD4;
+   float3 Binormal : TEXCOORD5;
+   float3 ViewVec : TEXCOORD6;
+};
+
+struct PS_OUTPUT
+{
+   float4 Position : COLOR0;
+   float4 Color : COLOR1;
+   float4 Normal : COLOR2;
+};
+
+#define brightness 0.35f
+#define height_modifier 125.0f
+#define strength_modifier 0.25f
+#define specular_attenuation 128.0f
+#define alpha_base 0.875f
+#define water_alpha 0.5f
+
+float3 LightDir = normalize(float3(0.5f, 1.0f, 1.0f));
+
+PS_OUTPUT ps_main(PS_INPUT Input)
+{
+   PS_OUTPUT Output;
+   
+   float3 normal = normalize(Input.Normal);
+   float3 tangent = normalize(Input.Tangent);
+   float3 binormal = normalize(Input.Binormal);
+   float diffuse = saturate(dot(normal, LightDir));
+   float ambient = 0.1f;
+
+   float gradient = Input.Id;
+   float4 id_color = float4(gradient, gradient, gradient, 1.0f);
+   float4 color_water = tex2D(water, Input.Texcoord);
+   float4 color_water_tint = tex2D(water_tint, Input.Texcoord);
+   float4 color_water_normal = tex2D(water_normal, Input.Texcoord);
+   float4 color_foam = tex2D(foam, Input.Texcoord);
+   float4 color_caustic = tex2D(caustic, Input.Texcoord);
+   float3 color_white = float3(1.0f, 1.0f, 1.0f);
+   float3 color_blue = float3(0.0f, 0.0f, 0.2f) * color_water_tint.xyz;
+   
+   //Specular
+   float3 normal_bump = normalize((color_water_normal.xyz * 2.0f) - 1.0f);
+   float3 mod_normal = normal_bump.z * normal + normal_bump.x * tangent + normal_bump.y * binormal;
+   float3 reflection = normalize(reflect(LightDir, mod_normal));
+   float3 specular = float3(1.0, 1.0, 1.0) * pow(max(0.0, dot(reflection, Input.ViewVec)), specular_attenuation);
+   
+   //Final output
+   float4 caustic_cutoff = step(0.0f, Input.Position_PS.w * height_modifier);
+   float4 broken_waves = caustic_cutoff * lerp(float4(0.0f, 0.0f, 0.0f, 1.0f), color_caustic, Input.Position_PS.w * height_modifier);
+   
+   Output.Position = Input.Position_PS;
+   Output.Color.xyz = (color_white * id_color.xyz * brightness + color_blue + color_water.xyz * color_foam.xyz + broken_waves.xyz * strength_modifier + specular) * (ambient + diffuse);
+   Output.Color.w = alpha_base - abs(dot(mul(mod_normal, matView), Input.ViewVec)) * water_alpha + saturate(specular);
+   Output.Normal = float4(mod_normal, 1.0f);
+   
+   //Normal colors
+   //Output.Color = float4(0.5f * normal + 0.5f, 1.0f); //-1 to +1, move values to 0 to 1
+   
+   //ID color
+   //Output.Color = id_color;
+   
+   return Output;
+}
